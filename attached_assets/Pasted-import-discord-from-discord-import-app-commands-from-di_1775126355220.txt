@@ -8,32 +8,10 @@ import signal
 import asyncio
 import sqlite3
 import re
-import threading
 from datetime import datetime, timezone, time, timedelta
 from better_profanity import profanity
-from flask import Flask, jsonify
 
 profanity.load_censor_words()
-
-# ── Health Check Web Server (required for Replit deployment) ──────────────────
-
-flask_app = Flask(__name__)
-
-
-@flask_app.route("/")
-def index():
-    return jsonify({"status": "AlterEgo bot is running"})
-
-
-@flask_app.route("/healthz")
-def health():
-    return jsonify({"status": "ok"})
-
-
-def run_flask():
-    port = int(os.environ.get("PORT", 8000))
-    flask_app.run(host="0.0.0.0", port=port, use_reloader=False)
-
 
 # ── NSFW Filter ───────────────────────────────────────────────────────────────
 
@@ -71,7 +49,7 @@ def is_nsfw(text: str) -> bool:
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-TOKEN = os.environ["DISCORD_TOKEN"]
+TOKEN = os.environ["DISCORD_BOT_TOKEN"]
 BOT_VERSION = "v2.4"  # bump this with every update post
 CURRENT_BOT_STATUS = "🟢"  # tracks last known status to avoid spam renames
 SEP = "· · ───────────── ꒰ঌ·✦·໒꒱ ───────────── · ·"
@@ -721,6 +699,8 @@ async def webhook_cmd_list(interaction: discord.Interaction):
 ✦ Total: **{len(hooks)}** webhook(s)"""
     embed = discord.Embed(description=description, color=discord.Color.purple())
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 
 
 # ── Game Night ────────────────────────────────────────────────────────────────
@@ -1671,10 +1651,5 @@ async def weekly_status():
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────
-
-# Start health check web server in background thread (required for deployment)
-flask_thread = threading.Thread(target=run_flask, daemon=True)
-flask_thread.start()
-print(f"Health check server started on port {os.environ.get('PORT', 8000)}")
 
 client.run(TOKEN)
