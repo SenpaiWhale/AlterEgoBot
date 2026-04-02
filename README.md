@@ -103,4 +103,14 @@ Have questions, suggestions, or want to report a bug? Reach out:
 
 ## License
 
-This project is open source. Feel free to fork and adapt it for your own server.
+Copyright (c) 2026 MrKarxsu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to use, copy, modify, and distribute the Software, subject to the following conditions:
+
+**Non-Commercial Use Only.** The Software may not be used, in whole or in part, for commercial purposes. Commercial purposes include, but are not limited to, selling the Software, offering it as a paid service, or using it in any product or service that generates revenue.
+
+**Attribution.** All copies or substantial portions of the Software must include this license notice and credit the original author.
+
+**Distribution.** Any modified versions distributed publicly must also be released under these same terms.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
