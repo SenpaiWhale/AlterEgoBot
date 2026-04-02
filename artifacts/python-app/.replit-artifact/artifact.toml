@@ -1,0 +1,32 @@
+kind = "web"
+previewPath = "/"
+title = "Python App"
+version = "1.0.0"
+id = "artifacts/python-app"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = ["/"]
+localPort = 8000
+
+[services.development]
+run = "python main.py"
+
+[services.production]
+
+[services.production.run]
+args = ["gunicorn", "main:app", "--bind", "0.0.0.0:8000", "--workers", "2"]
+
+[services.production.run.env]
+PORT = "8000"
+
+[services.production.health.startup]
+path = "/healthz"
+
+[services.env]
+PORT = "8000"
