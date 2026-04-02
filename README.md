@@ -2,6 +2,8 @@
 
 **AlterEgo#5039** is a feature-rich Discord bot built for community servers. It handles game night coordination, styled announcements, advertisement posting with NSFW filtering, Discord scheduled events, and real-time bot status monitoring — all through clean slash commands.
 
+**[+ Add AlterEgo to your server](https://discord.com/oauth2/authorize?client_id=1230302180603596822&scope=bot+applications.commands&permissions=8590151672)**
+
 ---
 
 ## Features
