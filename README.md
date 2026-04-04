@@ -14,8 +14,8 @@
 - **Discord Events** — Create and cancel Discord scheduled events directly from a command
 - **Bot Status Monitoring** — Live stats panel and a channel that renames itself based on bot health (🟢 / 🔴 / 🟡)
 - **Mod Logging** — Optional channel that records every command usage
-- **Scheduled Tasks** — Automatic status updates and version announcements
-- **24/7 Uptime** — Deployed on Replit Reserved VM, always online
+- **Bot Updates** — Broadcast changelogs to all servers with a single command
+- **Scheduled Tasks** — Automatic weekly status reports and health monitoring
 
 ---
 
@@ -33,6 +33,7 @@
 | `/event` | Create a Discord scheduled event in the server |
 | `/cancel` | Cancel an existing scheduled event by name |
 | `/status` | Post live bot stats to the status channel |
+| `/botupdate` | Broadcast a changelog to all servers (owner only) |
 | `/help` | Show all available commands and usage info |
 
 ### Setup (Requires Manage Server)
@@ -46,6 +47,14 @@
 | `/setup modlog` | Set the channel for command usage logs |
 | `/setup botcheck` | Set a channel that renames itself to reflect bot status |
 | `/setup updates` | Set a channel for bot version/update notifications |
+
+### Webhooks (Requires Manage Server)
+
+| Command | Description |
+|---|---|
+| `/webhook add` | Register a Discord webhook by name |
+| `/webhook remove` | Remove a registered webhook |
+| `/webhook list` | List all registered webhooks (URLs masked) |
 
 ---
 
@@ -66,12 +75,18 @@ cd AlterEgoBot
 pip install -r requirements.txt
 ```
 
+Or with `uv`:
+
+```bash
+uv sync
+```
+
 ### Configuration
 
 Set your bot token as an environment variable:
 
 ```bash
-export DISCORD_TOKEN=your_token_here
+export DISCORD_BOT_TOKEN=your_token_here
 ```
 
 ### Running
@@ -80,14 +95,43 @@ export DISCORD_TOKEN=your_token_here
 python main.py
 ```
 
-The bot will start, connect to Discord, and spin up a lightweight health check server on port 8000.
+Or with `uv`:
+
+```bash
+uv run python main.py
+```
+
+### Formatting Guide
+
+The `/postad`, `/announce`, and `/botupdate` commands support rich formatting:
+
+| Syntax | Effect |
+|---|---|
+| `\n` | New bullet line |
+| `\n\n` | Blank gap between sections |
+| `---` | Styled section divider |
+| `##Title` | Styled sub-header |
+| `[label](url)` | Inline clickable hyperlink |
+
+---
+
+## Project Structure
+
+```
+AlterEgoBot/
+├── main.py              # Bot entrypoint (all commands, DB, tasks)
+├── requirements.txt     # Pinned Python dependencies
+├── pyproject.toml       # Project metadata
+├── push_to_github.sh    # Deployment helper script
+├── .gitignore
+└── README.md
+```
 
 ---
 
 ## Tech Stack
 
 - [discord.py 2.4](https://discordpy.readthedocs.io/) — Discord API wrapper
-- [Flask](https://flask.palletsprojects.com/) — Health check web server
 - [better-profanity](https://github.com/snguyenthanh/better_profanity) — Profanity filtering for ads
 - [aiohttp](https://docs.aiohttp.org/) — Async HTTP for webhook delivery
 - SQLite — Per-guild configuration storage
