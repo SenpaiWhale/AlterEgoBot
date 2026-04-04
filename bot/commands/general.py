@@ -144,14 +144,6 @@ def _build_help_pages() -> list[discord.Embed]:
 
 {SEP}
 
-📢 **/botupdate** *(owner only)*
-✦ Broadcast a changelog to all servers with an updates channel
-✦ Uses the same formatting as /postad and /announce
-✦ `Usage:` /botupdate version: title: changelog:
-✦ `Example:` /botupdate version:v2.5 title:Security Patch changelog:##Changes\\nFixed webhook masking---##Notes\\nNo action needed
-
-{SEP}
-
 ❓ **/help**
 ✦ Sends this menu to your DMs (or shows it here if DMs are off)
 ✦ `Usage:` /help

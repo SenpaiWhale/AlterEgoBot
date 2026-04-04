@@ -14,7 +14,7 @@
 - **Discord Events** — Create and cancel Discord scheduled events directly from a command
 - **Bot Status Monitoring** — Live stats panel and a channel that renames itself based on bot health (🟢 / 🔴 / 🟡)
 - **Mod Logging** — Optional channel that records every command usage
-- **Bot Updates** — Broadcast changelogs to all servers with a single command
+- **Bot Updates** — Automatic changelog posts to all servers when the bot starts with a new version
 - **Scheduled Tasks** — Automatic weekly status reports and health monitoring
 
 ---
@@ -33,7 +33,6 @@
 | `/event` | Create a Discord scheduled event in the server |
 | `/cancel` | Cancel an existing scheduled event by name |
 | `/status` | Post live bot stats to the status channel |
-| `/botupdate` | Broadcast a changelog to all servers (owner only) |
 | `/help` | Show all available commands and usage info |
 
 ### Setup (Requires Manage Server)
@@ -74,7 +73,7 @@ AlterEgoBot/
 │   ├── tasks.py             # Background tasks (health monitor, weekly status)
 │   └── commands/
 │       ├── __init__.py
-│       ├── admin.py         # /status, /botupdate
+│       ├── admin.py         # /status
 │       ├── content.py       # /postad, /announce
 │       ├── events.py        # /event, /cancel
 │       ├── gamenight.py     # /gamenight, /gameplan, /gamecheck

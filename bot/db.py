@@ -58,6 +58,12 @@ def init_db():
                 UNIQUE(guild_id, name)
             )
         """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS bot_meta (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
         conn.commit()
 
 
@@ -306,3 +312,46 @@ def query_guild_channel_pairs(*columns: str) -> list[tuple]:
         c = conn.cursor()
         c.execute(f"SELECT guild_id, {col_list} FROM guild_config WHERE {where}")
         return c.fetchall()
+
+
+# ── Bot Metadata ─────────────────────────────────────────────────────────────
+
+
+def get_meta(key: str) -> str | None:
+    """Retrieve a value from the bot_meta key-value store.
+
+    Parameters
+    ----------
+    key : str
+        The metadata key.
+
+    Returns
+    -------
+    str or None
+        The stored value, or None if not set.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT value FROM bot_meta WHERE key = ?", (key,))
+        row = c.fetchone()
+    return row[0] if row else None
+
+
+def set_meta(key: str, value: str):
+    """Insert or update a value in the bot_meta key-value store.
+
+    Parameters
+    ----------
+    key : str
+        The metadata key.
+    value : str
+        The value to store.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO bot_meta (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+        conn.commit()

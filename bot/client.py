@@ -9,8 +9,9 @@ from datetime import datetime, timezone
 import discord
 from discord import app_commands
 
-from bot.config import BOT_VERSION, DB_PATH, OWNER_GUILD, SEP
-from bot.db import get_config, init_db, query_channel_ids, query_guild_ids
+from bot.config import BOT_VERSION, CHANGELOG_BODY, CHANGELOG_TITLE, OWNER_GUILD, SEP
+from bot.db import get_config, get_meta, init_db, query_channel_ids, query_guild_ids, set_meta
+from bot.formatting import format_body
 from bot.helpers import post_status_to, set_bot_check_name
 
 
@@ -102,6 +103,8 @@ def create_client() -> AlterEgoClient:
                 await channel.send(embed=embed)
             except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException):
                 pass
+
+        await _broadcast_changelog_if_new(client)
 
         loop = asyncio.get_event_loop()
         for sig in (signal.SIGTERM, signal.SIGINT):
@@ -250,6 +253,48 @@ def create_client() -> AlterEgoClient:
             pass
 
     return client
+
+
+async def _broadcast_changelog_if_new(client: AlterEgoClient):
+    """Post the changelog to updates channels if this is a new version."""
+    last_version = get_meta("last_changelog_version")
+    if last_version == BOT_VERSION:
+        return
+
+    if not CHANGELOG_BODY:
+        set_meta("last_changelog_version", BOT_VERSION)
+        return
+
+    bulleted = format_body(CHANGELOG_BODY)
+    now = datetime.now(timezone.utc)
+
+    description = f"""【｡✦｡】 # BOT UPDATE 【｡✦｡】
+{SEP}
+
+##{BOT_VERSION} — {CHANGELOG_TITLE}
+
+{bulleted}
+
+{SEP}
+
+✦ Run `/setup botcheck #channel` to enable the health indicator channel"""
+
+    embed = discord.Embed(description=description, color=discord.Color.purple())
+    if client.user:
+        embed.set_thumbnail(url=client.user.display_avatar.url)
+    embed.set_footer(text=f"Update Log • {now.strftime('%Y-%m-%d %H:%M UTC')}")
+
+    sent = 0
+    for channel_id in query_channel_ids("updates_channel_id"):
+        try:
+            ch = client.get_channel(channel_id) or await client.fetch_channel(channel_id)
+            await ch.send(embed=embed)
+            sent += 1
+        except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException):
+            pass
+
+    set_meta("last_changelog_version", BOT_VERSION)
+    print(f"Changelog {BOT_VERSION} broadcast to {sent} server(s)")
 
 
 async def _graceful_shutdown(client: AlterEgoClient):
