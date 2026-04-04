@@ -1,0 +1,1 @@
+"""AlterEgo Discord bot package."""

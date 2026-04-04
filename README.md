@@ -14,8 +14,8 @@
 - **Discord Events** — Create and cancel Discord scheduled events directly from a command
 - **Bot Status Monitoring** — Live stats panel and a channel that renames itself based on bot health (🟢 / 🔴 / 🟡)
 - **Mod Logging** — Optional channel that records every command usage
-- **Scheduled Tasks** — Automatic status updates and version announcements
-- **24/7 Uptime** — Deployed on Replit Reserved VM, always online
+- **Bot Updates** — Automatic changelog posts to all servers when the bot starts with a new version
+- **Scheduled Tasks** — Automatic weekly status reports and health monitoring
 
 ---
 
@@ -47,6 +47,47 @@
 | `/setup botcheck` | Set a channel that renames itself to reflect bot status |
 | `/setup updates` | Set a channel for bot version/update notifications |
 
+### Webhooks (Requires Manage Server)
+
+| Command | Description |
+|---|---|
+| `/webhook add` | Register a Discord webhook by name |
+| `/webhook remove` | Remove a registered webhook |
+| `/webhook list` | List all registered webhooks (URLs masked) |
+
+---
+
+## Project Structure
+
+```
+AlterEgoBot/
+├── main.py                  # Entrypoint — Flask health server + bot startup
+├── bot/
+│   ├── __init__.py
+│   ├── client.py            # Client factory, lifecycle events, shutdown
+│   ├── config.py            # Constants (token, version, paths)
+│   ├── db.py                # SQLite data layer (config + webhooks)
+│   ├── filters.py           # NSFW content detection
+│   ├── formatting.py        # Styled text formatting
+│   ├── helpers.py           # Shared utilities (staff check, modlog, status)
+│   ├── tasks.py             # Background tasks (health monitor, weekly status)
+│   └── commands/
+│       ├── __init__.py
+│       ├── admin.py         # /status
+│       ├── content.py       # /postad, /announce
+│       ├── events.py        # /event, /cancel
+│       ├── gamenight.py     # /gamenight, /gameplan, /gamecheck
+│       ├── general.py       # /help
+│       ├── setup.py         # /setup group
+│       └── webhooks.py      # /webhook group
+├── requirements.txt
+├── pyproject.toml
+├── push_to_github.sh
+├── .replit
+├── .gitignore
+└── README.md
+```
+
 ---
 
 ## Self-Hosting
@@ -71,7 +112,7 @@ pip install -r requirements.txt
 Set your bot token as an environment variable:
 
 ```bash
-export DISCORD_TOKEN=your_token_here
+export DISCORD_BOT_TOKEN=your_token_here
 ```
 
 ### Running
@@ -80,14 +121,26 @@ export DISCORD_TOKEN=your_token_here
 python main.py
 ```
 
-The bot will start, connect to Discord, and spin up a lightweight health check server on port 8000.
+The bot will start, connect to Discord, and spin up a health check server on port 8000.
+
+### Formatting Guide
+
+The `/postad`, `/announce`, and `/botupdate` commands support rich formatting:
+
+| Syntax | Effect |
+|---|---|
+| `\n` | New bullet line |
+| `\n\n` | Blank gap between sections |
+| `---` | Styled section divider |
+| `##Title` | Styled sub-header |
+| `[label](url)` | Inline clickable hyperlink |
 
 ---
 
 ## Tech Stack
 
 - [discord.py 2.4](https://discordpy.readthedocs.io/) — Discord API wrapper
-- [Flask](https://flask.palletsprojects.com/) — Health check web server
+- [Flask](https://flask.palletsprojects.com/) — Health check server (Replit uptime)
 - [better-profanity](https://github.com/snguyenthanh/better_profanity) — Profanity filtering for ads
 - [aiohttp](https://docs.aiohttp.org/) — Async HTTP for webhook delivery
 - SQLite — Per-guild configuration storage
