@@ -58,6 +58,39 @@
 
 ---
 
+## Project Structure
+
+```
+AlterEgoBot/
+├── main.py                  # Entrypoint — Flask health server + bot startup
+├── bot/
+│   ├── __init__.py
+│   ├── client.py            # Client factory, lifecycle events, shutdown
+│   ├── config.py            # Constants (token, version, paths)
+│   ├── db.py                # SQLite data layer (config + webhooks)
+│   ├── filters.py           # NSFW content detection
+│   ├── formatting.py        # Styled text formatting
+│   ├── helpers.py           # Shared utilities (staff check, modlog, status)
+│   ├── tasks.py             # Background tasks (health monitor, weekly status)
+│   └── commands/
+│       ├── __init__.py
+│       ├── admin.py         # /status, /botupdate
+│       ├── content.py       # /postad, /announce
+│       ├── events.py        # /event, /cancel
+│       ├── gamenight.py     # /gamenight, /gameplan, /gamecheck
+│       ├── general.py       # /help
+│       ├── setup.py         # /setup group
+│       └── webhooks.py      # /webhook group
+├── requirements.txt
+├── pyproject.toml
+├── push_to_github.sh
+├── .replit
+├── .gitignore
+└── README.md
+```
+
+---
+
 ## Self-Hosting
 
 ### Requirements
@@ -75,12 +108,6 @@ cd AlterEgoBot
 pip install -r requirements.txt
 ```
 
-Or with `uv`:
-
-```bash
-uv sync
-```
-
 ### Configuration
 
 Set your bot token as an environment variable:
@@ -95,11 +122,7 @@ export DISCORD_BOT_TOKEN=your_token_here
 python main.py
 ```
 
-Or with `uv`:
-
-```bash
-uv run python main.py
-```
+The bot will start, connect to Discord, and spin up a health check server on port 8000.
 
 ### Formatting Guide
 
@@ -115,23 +138,10 @@ The `/postad`, `/announce`, and `/botupdate` commands support rich formatting:
 
 ---
 
-## Project Structure
-
-```
-AlterEgoBot/
-├── main.py              # Bot entrypoint (all commands, DB, tasks)
-├── requirements.txt     # Pinned Python dependencies
-├── pyproject.toml       # Project metadata
-├── push_to_github.sh    # Deployment helper script
-├── .gitignore
-└── README.md
-```
-
----
-
 ## Tech Stack
 
 - [discord.py 2.4](https://discordpy.readthedocs.io/) — Discord API wrapper
+- [Flask](https://flask.palletsprojects.com/) — Health check server (Replit uptime)
 - [better-profanity](https://github.com/snguyenthanh/better_profanity) — Profanity filtering for ads
 - [aiohttp](https://docs.aiohttp.org/) — Async HTTP for webhook delivery
 - SQLite — Per-guild configuration storage

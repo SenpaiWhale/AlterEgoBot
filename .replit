@@ -1,0 +1,10 @@
+modules = ["python-3.12"]
+
+run = "python main.py"
+
+[deployment]
+run = ["python", "main.py"]
+deploymentTarget = "autoscale"
+
+[nix]
+channel = "stable-25_05"
