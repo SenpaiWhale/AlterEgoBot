@@ -50,7 +50,7 @@ def is_nsfw(text: str) -> bool:
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 TOKEN = os.environ["DISCORD_BOT_TOKEN"]
-BOT_VERSION = "v2.4"  # bump this with every update post
+BOT_VERSION = "v2.5"  # bump this with every update post
 CURRENT_BOT_STATUS = "🟢"  # tracks last known status to avoid spam renames
 SEP = "· · ───────────── ꒰ঌ·✦·໒꒱ ───────────── · ·"
 DB_PATH = os.path.join(os.path.dirname(__file__), "config.db")
@@ -62,47 +62,58 @@ OWNER_GUILD = discord.Object(id=1471048262285918210)
 # ── Database ──────────────────────────────────────────────────────────────────
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS guild_config (
-            guild_id             INTEGER PRIMARY KEY,
-            gamenight_channel_id INTEGER,
-            announce_channel_id  INTEGER,
-            ad_channel_id        INTEGER,
-            status_channel_id    INTEGER,
-            modlog_channel_id    INTEGER,
-            bot_check_channel_id INTEGER
-        )
-    """)
-    # Migrate existing DBs that don't have the new column yet
-    try:
-        c.execute("ALTER TABLE guild_config ADD COLUMN bot_check_channel_id INTEGER")
-    except Exception:
-        pass
-    try:
-        c.execute("ALTER TABLE guild_config ADD COLUMN updates_channel_id INTEGER")
-    except Exception:
-        pass
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS guild_webhooks (
-            id       INTEGER PRIMARY KEY AUTOINCREMENT,
-            guild_id INTEGER NOT NULL,
-            name     TEXT    NOT NULL,
-            url      TEXT    NOT NULL,
-            UNIQUE(guild_id, name)
-        )
-    """)
-    conn.commit()
-    conn.close()
+    """Create tables and run migrations for the guild configuration database."""
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS guild_config (
+                guild_id             INTEGER PRIMARY KEY,
+                gamenight_channel_id INTEGER,
+                announce_channel_id  INTEGER,
+                ad_channel_id        INTEGER,
+                status_channel_id    INTEGER,
+                modlog_channel_id    INTEGER,
+                bot_check_channel_id INTEGER
+            )
+        """)
+        # Migrate existing DBs that don't have the new column yet
+        try:
+            c.execute("ALTER TABLE guild_config ADD COLUMN bot_check_channel_id INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            c.execute("ALTER TABLE guild_config ADD COLUMN updates_channel_id INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS guild_webhooks (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id INTEGER NOT NULL,
+                name     TEXT    NOT NULL,
+                url      TEXT    NOT NULL,
+                UNIQUE(guild_id, name)
+            )
+        """)
+        conn.commit()
 
 
 def get_config(guild_id: int) -> dict:
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT * FROM guild_config WHERE guild_id = ?", (guild_id,))
-    row = c.fetchone()
-    conn.close()
+    """Retrieve the guild configuration row as a dict.
+
+    Parameters
+    ----------
+    guild_id : int
+        Discord guild snowflake.
+
+    Returns
+    -------
+    dict
+        Mapping of config column names to values, or empty dict if not found.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM guild_config WHERE guild_id = ?", (guild_id,))
+        row = c.fetchone()
     if not row:
         return {}
     keys = ["guild_id", "gamenight_channel_id", "announce_channel_id",
@@ -111,71 +122,165 @@ def get_config(guild_id: int) -> dict:
     return dict(zip(keys, row))
 
 
+_ALLOWED_CONFIG_COLUMNS = frozenset({
+    "gamenight_channel_id",
+    "announce_channel_id",
+    "ad_channel_id",
+    "status_channel_id",
+    "modlog_channel_id",
+    "bot_check_channel_id",
+    "updates_channel_id",
+})
+
+
 def set_config(guild_id: int, **kwargs):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO guild_config (guild_id) VALUES (?)", (guild_id,))
-    for key, value in kwargs.items():
-        c.execute(f"UPDATE guild_config SET {key} = ? WHERE guild_id = ?", (value, guild_id))
-    conn.commit()
-    conn.close()
+    """Upsert guild configuration values.
+
+    Parameters
+    ----------
+    guild_id : int
+        Discord guild snowflake.
+    **kwargs
+        Column-value pairs. Column names are validated against an allowlist.
+
+    Raises
+    ------
+    ValueError
+        If an unknown column name is supplied.
+    """
+    bad_keys = set(kwargs) - _ALLOWED_CONFIG_COLUMNS
+    if bad_keys:
+        raise ValueError(f"Invalid config keys: {bad_keys}")
+
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("INSERT OR IGNORE INTO guild_config (guild_id) VALUES (?)", (guild_id,))
+        for key, value in kwargs.items():
+            c.execute(f"UPDATE guild_config SET {key} = ? WHERE guild_id = ?", (value, guild_id))
+        conn.commit()
 
 
 # ── Webhook DB Helpers ────────────────────────────────────────────────────────
 
 def webhook_add(guild_id: int, name: str, url: str) -> bool:
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    try:
-        c.execute("INSERT INTO guild_webhooks (guild_id, name, url) VALUES (?, ?, ?)",
-                  (guild_id, name.lower(), url))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-    finally:
-        conn.close()
+    """Register a new webhook. Returns False if the name already exists.
+
+    Parameters
+    ----------
+    guild_id : int
+        Discord guild snowflake.
+    name : str
+        Short label for the webhook.
+    url : str
+        Discord webhook URL.
+
+    Returns
+    -------
+    bool
+        True if inserted, False if name already exists.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        try:
+            c.execute("INSERT INTO guild_webhooks (guild_id, name, url) VALUES (?, ?, ?)",
+                      (guild_id, name.lower(), url))
+            conn.commit()
+            return True
+        except sqlite3.IntegrityError:
+            return False
 
 
 def webhook_update(guild_id: int, name: str, url: str) -> bool:
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("UPDATE guild_webhooks SET url = ? WHERE guild_id = ? AND name = ?",
-              (url, guild_id, name.lower()))
-    updated = c.rowcount > 0
-    conn.commit()
-    conn.close()
+    """Update an existing webhook URL by name.
+
+    Parameters
+    ----------
+    guild_id : int
+        Discord guild snowflake.
+    name : str
+        Webhook label to update.
+    url : str
+        New Discord webhook URL.
+
+    Returns
+    -------
+    bool
+        True if a row was updated, False if the name was not found.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("UPDATE guild_webhooks SET url = ? WHERE guild_id = ? AND name = ?",
+                  (url, guild_id, name.lower()))
+        updated = c.rowcount > 0
+        conn.commit()
     return updated
 
 
 def webhook_remove(guild_id: int, name: str) -> bool:
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("DELETE FROM guild_webhooks WHERE guild_id = ? AND name = ?",
-              (guild_id, name.lower()))
-    removed = c.rowcount > 0
-    conn.commit()
-    conn.close()
+    """Delete a webhook registration by name.
+
+    Parameters
+    ----------
+    guild_id : int
+        Discord guild snowflake.
+    name : str
+        Webhook label to remove.
+
+    Returns
+    -------
+    bool
+        True if a row was deleted, False if the name was not found.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("DELETE FROM guild_webhooks WHERE guild_id = ? AND name = ?",
+                  (guild_id, name.lower()))
+        removed = c.rowcount > 0
+        conn.commit()
     return removed
 
 
 def webhook_list(guild_id: int) -> list[dict]:
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT name, url FROM guild_webhooks WHERE guild_id = ? ORDER BY name",
-              (guild_id,))
-    rows = c.fetchall()
-    conn.close()
+    """List all registered webhooks for a guild.
+
+    Parameters
+    ----------
+    guild_id : int
+        Discord guild snowflake.
+
+    Returns
+    -------
+    list[dict]
+        Each entry has ``name`` and ``url`` keys, sorted alphabetically.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT name, url FROM guild_webhooks WHERE guild_id = ? ORDER BY name",
+                  (guild_id,))
+        rows = c.fetchall()
     return [{"name": r[0], "url": r[1]} for r in rows]
 
 
 def webhook_get(guild_id: int, name: str) -> str | None:
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT url FROM guild_webhooks WHERE guild_id = ? AND name = ?",
-              (guild_id, name.lower()))
-    row = c.fetchone()
-    conn.close()
+    """Fetch a single webhook URL by name.
+
+    Parameters
+    ----------
+    guild_id : int
+        Discord guild snowflake.
+    name : str
+        Webhook label to look up.
+
+    Returns
+    -------
+    str or None
+        The webhook URL, or None if not found.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT url FROM guild_webhooks WHERE guild_id = ? AND name = ?",
+                  (guild_id, name.lower()))
+        row = c.fetchone()
     return row[0] if row else None
 
 
@@ -304,18 +409,16 @@ async def post_status_to(channel_id: int):
 async def graceful_shutdown():
     """Rename bot-check channels to red, post shutdown alert, then close."""
     print("Shutting down gracefully...")
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT guild_id FROM guild_config WHERE bot_check_channel_id IS NOT NULL")
-    check_rows = c.fetchall()
-    conn.close()
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT guild_id FROM guild_config WHERE bot_check_channel_id IS NOT NULL")
+        check_rows = c.fetchall()
     for (gid,) in check_rows:
         await set_bot_check_name(gid, "🔴")
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT status_channel_id FROM guild_config WHERE status_channel_id IS NOT NULL")
-    rows = c.fetchall()
-    conn.close()
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT status_channel_id FROM guild_config WHERE status_channel_id IS NOT NULL")
+        rows = c.fetchall()
     now = datetime.now(timezone.utc)
     description = f"""【｡✦｡】 # BOT OFFLINE 【｡✦｡】
 {SEP}
@@ -332,7 +435,7 @@ async def graceful_shutdown():
         try:
             channel = client.get_channel(channel_id) or await client.fetch_channel(channel_id)
             await channel.send(embed=embed)
-        except Exception:
+        except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException):
             pass
     await client.close()
 
@@ -375,11 +478,10 @@ async def on_ready():
     )
 
     # Rename bot-check channels to green for all configured guilds
-    conn2 = sqlite3.connect(DB_PATH)
-    c2 = conn2.cursor()
-    c2.execute("SELECT guild_id FROM guild_config WHERE bot_check_channel_id IS NOT NULL")
-    check_rows = c2.fetchall()
-    conn2.close()
+    with sqlite3.connect(DB_PATH) as conn2:
+        c2 = conn2.cursor()
+        c2.execute("SELECT guild_id FROM guild_config WHERE bot_check_channel_id IS NOT NULL")
+        check_rows = c2.fetchall()
     for (gid,) in check_rows:
         await set_bot_check_name(gid, "🟢")
 
@@ -398,16 +500,15 @@ async def on_ready():
 
 ✦ 🟢 {now.strftime('%Y-%m-%d %H:%M UTC')}"""
     embed = discord.Embed(description=description, color=discord.Color.green())
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT status_channel_id FROM guild_config WHERE status_channel_id IS NOT NULL")
-    rows = c.fetchall()
-    conn.close()
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT status_channel_id FROM guild_config WHERE status_channel_id IS NOT NULL")
+        rows = c.fetchall()
     for (channel_id,) in rows:
         try:
             channel = client.get_channel(channel_id) or await client.fetch_channel(channel_id)
             await channel.send(embed=embed)
-        except Exception:
+        except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException):
             pass
 
     loop = asyncio.get_event_loop()
@@ -427,12 +528,12 @@ async def on_guild_join(guild: discord.Guild):
             if entry.target and entry.target.id == client.user.id:
                 inviter = entry.user
                 break
-    except Exception:
+    except (discord.errors.Forbidden, discord.errors.HTTPException):
         pass
     if not inviter:
         try:
             inviter = guild.owner or await guild.fetch_member(guild.owner_id)
-        except Exception:
+        except (discord.errors.NotFound, discord.errors.HTTPException):
             pass
 
     if inviter:
@@ -522,7 +623,7 @@ async def on_guild_join(guild: discord.Guild):
         short_embed = discord.Embed(description=short, color=discord.Color.purple())
         try:
             await channel.send(embed=short_embed)
-        except Exception:
+        except (discord.errors.Forbidden, discord.errors.HTTPException):
             pass
 
 
@@ -688,7 +789,7 @@ async def webhook_cmd_list(interaction: discord.Interaction):
     if not hooks:
         await interaction.response.send_message("❌ No webhooks registered yet. Use `/webhook add` to add one.", ephemeral=True)
         return
-    lines = "\n".join(f"✦ **{h['name']}** — `{h['url'][:60]}...`" if len(h['url']) > 60 else f"✦ **{h['name']}** — `{h['url']}`" for h in hooks)
+    lines = "\n".join(f"✦ **{h['name']}** — `•••••/{h['url'].rsplit('/', 1)[-1][:6]}…`" for h in hooks)
     description = f"""【｡✦｡】 # REGISTERED WEBHOOKS 【｡✦｡】
 {SEP}
 
@@ -696,11 +797,77 @@ async def webhook_cmd_list(interaction: discord.Interaction):
 
 {SEP}
 
-✦ Total: **{len(hooks)}** webhook(s)"""
+✦ Total: **{len(hooks)}** webhook(s)
+✦ URLs are masked for security"""
     embed = discord.Embed(description=description, color=discord.Color.purple())
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
+
+# ── /botupdate ────────────────────────────────────────────────────────────────
+
+@tree.command(name="botupdate", description="Broadcast a bot update changelog to all servers with an updates channel.")
+@app_commands.describe(
+    version="Version tag for this update (e.g. v2.5)",
+    title="Short title for the update (e.g. Smart Health Monitor & Welcome DMs)",
+    changelog="Body text — use \\n for lines, --- for dividers, ##Header for sub-headers",
+)
+@app_commands.default_permissions(administrator=True)
+async def botupdate(
+    interaction: discord.Interaction,
+    version: str,
+    title: str,
+    changelog: str,
+):
+    """Push a styled update post to every guild that has configured an updates channel."""
+    if interaction.user.id != (await client.application_info()).owner.id:
+        await interaction.response.send_message(
+            "❌ Only the bot owner can broadcast updates.", ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    bulleted = format_body(changelog)
+    now = datetime.now(timezone.utc)
+
+    description = f"""【｡✦｡】 # BOT UPDATE 【｡✦｡】
+{SEP}
+
+##{version} — {title}
+
+{bulleted}
+
+{SEP}
+
+✦ Run `/setup botcheck #channel` to enable the health indicator channel"""
+
+    embed = discord.Embed(description=description, color=discord.Color.purple())
+    if client.user:
+        embed.set_thumbnail(url=client.user.display_avatar.url)
+    embed.set_footer(text=f"Update Log • {now.strftime('%Y-%m-%d %H:%M UTC')}")
+
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT guild_id, updates_channel_id FROM guild_config WHERE updates_channel_id IS NOT NULL")
+        rows = c.fetchall()
+
+    sent = 0
+    failed = 0
+    for guild_id, channel_id in rows:
+        try:
+            ch = client.get_channel(channel_id) or await client.fetch_channel(channel_id)
+            await ch.send(embed=embed)
+            sent += 1
+        except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException):
+            failed += 1
+
+    await interaction.followup.send(
+        f"✅ Update **{version}** broadcast to **{sent}** server(s)"
+        + (f" ({failed} failed)" if failed else ""),
+        ephemeral=True,
+    )
+    await log_command(interaction, extra=f"Version: {version} | Sent: {sent} | Failed: {failed}")
 
 
 # ── Game Night ────────────────────────────────────────────────────────────────
@@ -1053,9 +1220,9 @@ async def postad(
         )
         return
 
-    if image_url and not re.match(r'https?://.+\..+', image_url):
+    if image_url and not re.match(r'https://.+\..+', image_url):
         await interaction.response.send_message(
-            "❌ `image_url` doesn't look like a valid URL. It must start with `http://` or `https://`.",
+            "❌ `image_url` must be a valid HTTPS URL (e.g. `https://example.com/image.png`).",
             ephemeral=True,
         )
         return
@@ -1285,8 +1452,10 @@ async def event(
             ephemeral=True,
         )
     except Exception as e:
+        print(f"Event creation error: {e}")
         await interaction.followup.send(
-            f"❌ Something went wrong creating the event: `{e}`", ephemeral=True
+            "❌ Something went wrong creating the event. Check bot permissions and try again.",
+            ephemeral=True,
         )
 
 
@@ -1466,6 +1635,14 @@ def build_help_pages() -> list[discord.Embed]:
 
 {SEP}
 
+📢 **/botupdate** *(owner only)*
+✦ Broadcast a changelog to all servers with an updates channel
+✦ Uses the same formatting as /postad and /announce
+✦ `Usage:` /botupdate version: title: changelog:
+✦ `Example:` /botupdate version:v2.5 title:Security Patch changelog:##Changes\\nFixed webhook masking---##Notes\\nNo action needed
+
+{SEP}
+
 ❓ **/help**
 ✦ Sends this menu to your DMs (or shows it here if DMs are off)
 ✦ `Usage:` /help
@@ -1538,7 +1715,6 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 ✦ **Command:** {cmd_name}
 ✦ **Triggered by:** {interaction.user.mention}
 ✦ **Error:** {type(error).__name__}
-✦ **Details:** {str(error)[:200]}
 ✦ **Uptime:** {get_uptime_str()}
 
 {SEP}
@@ -1547,7 +1723,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
             embed = discord.Embed(description=description, color=discord.Color.yellow())
             channel = client.get_channel(channel_id) or await client.fetch_channel(channel_id)
             await channel.send(embed=embed)
-    except Exception:
+    except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException):
         pass
 
     msg = f"⚠️ Something went wrong with `{cmd_name}`. The issue has been logged."
@@ -1556,7 +1732,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
             await interaction.response.send_message(msg, ephemeral=True)
         else:
             await interaction.followup.send(msg, ephemeral=True)
-    except Exception:
+    except (discord.errors.HTTPException, discord.errors.InteractionResponded):
         pass
 
 
@@ -1576,7 +1752,7 @@ async def health_check():
             new_status = "🟡"
         else:
             new_status = "🔴"
-    except Exception:
+    except (AttributeError, OverflowError):
         new_status = "🔴"
 
     # Nothing changed — stay silent
@@ -1586,11 +1762,10 @@ async def health_check():
     old_status = CURRENT_BOT_STATUS
     CURRENT_BOT_STATUS = new_status
 
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT guild_id FROM guild_config WHERE bot_check_channel_id IS NOT NULL OR status_channel_id IS NOT NULL")
-    rows = c.fetchall()
-    conn.close()
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT guild_id FROM guild_config WHERE bot_check_channel_id IS NOT NULL OR status_channel_id IS NOT NULL")
+        rows = c.fetchall()
 
     status_labels = {"🟢": "ONLINE", "🟡": "DEGRADED", "🔴": "OFFLINE"}
     status_colors = {"🟢": discord.Color.green(), "🟡": discord.Color.yellow(), "🔴": discord.Color.red()}
@@ -1638,15 +1813,14 @@ async def before_health_check():
 async def weekly_status():
     if datetime.now(timezone.utc).weekday() != 6:
         return
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT status_channel_id FROM guild_config WHERE status_channel_id IS NOT NULL")
-    rows = c.fetchall()
-    conn.close()
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT status_channel_id FROM guild_config WHERE status_channel_id IS NOT NULL")
+        rows = c.fetchall()
     for (channel_id,) in rows:
         try:
             await post_status_to(channel_id)
-        except Exception as e:
+        except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException) as e:
             print(f"Weekly status error for channel {channel_id}: {e}")
 
 
