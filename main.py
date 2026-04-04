@@ -50,7 +50,7 @@ def is_nsfw(text: str) -> bool:
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 TOKEN = os.environ["DISCORD_BOT_TOKEN"]
-BOT_VERSION = "v2.4"  # bump this with every update post
+BOT_VERSION = "v2.5"  # bump this with every update post
 CURRENT_BOT_STATUS = "🟢"  # tracks last known status to avoid spam renames
 SEP = "· · ───────────── ꒰ঌ·✦·໒꒱ ───────────── · ·"
 DB_PATH = os.path.join(os.path.dirname(__file__), "config.db")
@@ -803,6 +803,71 @@ async def webhook_cmd_list(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
+
+# ── /botupdate ────────────────────────────────────────────────────────────────
+
+@tree.command(name="botupdate", description="Broadcast a bot update changelog to all servers with an updates channel.")
+@app_commands.describe(
+    version="Version tag for this update (e.g. v2.5)",
+    title="Short title for the update (e.g. Smart Health Monitor & Welcome DMs)",
+    changelog="Body text — use \\n for lines, --- for dividers, ##Header for sub-headers",
+)
+@app_commands.default_permissions(administrator=True)
+async def botupdate(
+    interaction: discord.Interaction,
+    version: str,
+    title: str,
+    changelog: str,
+):
+    """Push a styled update post to every guild that has configured an updates channel."""
+    if interaction.user.id != (await client.application_info()).owner.id:
+        await interaction.response.send_message(
+            "❌ Only the bot owner can broadcast updates.", ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    bulleted = format_body(changelog)
+    now = datetime.now(timezone.utc)
+
+    description = f"""【｡✦｡】 # BOT UPDATE 【｡✦｡】
+{SEP}
+
+##{version} — {title}
+
+{bulleted}
+
+{SEP}
+
+✦ Run `/setup botcheck #channel` to enable the health indicator channel"""
+
+    embed = discord.Embed(description=description, color=discord.Color.purple())
+    if client.user:
+        embed.set_thumbnail(url=client.user.display_avatar.url)
+    embed.set_footer(text=f"Update Log • {now.strftime('%Y-%m-%d %H:%M UTC')}")
+
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT guild_id, updates_channel_id FROM guild_config WHERE updates_channel_id IS NOT NULL")
+        rows = c.fetchall()
+
+    sent = 0
+    failed = 0
+    for guild_id, channel_id in rows:
+        try:
+            ch = client.get_channel(channel_id) or await client.fetch_channel(channel_id)
+            await ch.send(embed=embed)
+            sent += 1
+        except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException):
+            failed += 1
+
+    await interaction.followup.send(
+        f"✅ Update **{version}** broadcast to **{sent}** server(s)"
+        + (f" ({failed} failed)" if failed else ""),
+        ephemeral=True,
+    )
+    await log_command(interaction, extra=f"Version: {version} | Sent: {sent} | Failed: {failed}")
 
 
 # ── Game Night ────────────────────────────────────────────────────────────────
@@ -1567,6 +1632,14 @@ def build_help_pages() -> list[discord.Embed]:
 ✦ Shows version, ping, uptime, servers, and total commands
 ✦ Also auto-posts every **Sunday at 12:00 PM UTC**
 ✦ `Usage:` /status
+
+{SEP}
+
+📢 **/botupdate** *(owner only)*
+✦ Broadcast a changelog to all servers with an updates channel
+✦ Uses the same formatting as /postad and /announce
+✦ `Usage:` /botupdate version: title: changelog:
+✦ `Example:` /botupdate version:v2.5 title:Security Patch changelog:##Changes\\nFixed webhook masking---##Notes\\nNo action needed
 
 {SEP}
 
