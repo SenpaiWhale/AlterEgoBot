@@ -134,6 +134,13 @@ The `/postad`, `/announce`, and `/botupdate` commands support rich formatting:
 | `---` | Styled section divider |
 | `##Title` | Styled sub-header |
 | `[label](url)` | Inline clickable hyperlink |
+| Emoji-prefixed line | Kept as-is (e.g. `🏆 Achievement`) |
+
+#### Long Advertisements
+
+`/postad` supports `body2` and `body3` overflow parameters for ads that exceed a single field's character limit. All three body fields are concatenated and formatted together.
+
+The `ping` parameter lets you choose `@here` (default), `@everyone`, or `No ping`.
 
 ---
 

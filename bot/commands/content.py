@@ -30,20 +30,33 @@ def register(client: AlterEgoClient):
     """
     tree = client.tree
 
+    ping_choices = [
+        app_commands.Choice(name="@here", value="here"),
+        app_commands.Choice(name="@everyone", value="everyone"),
+        app_commands.Choice(name="No ping", value="none"),
+    ]
+
     @tree.command(name="postad", description="Post a styled advertisement to the ad channel or via a webhook.")
     @app_commands.describe(
         title="Title of the advertisement",
         description="Body text — use \\n for lines, --- for dividers, ##Header for sub-headers, [label](url) for links",
+        body2="Continuation of the body (overflow) — same formatting rules",
+        body3="Continuation of the body (overflow) — same formatting rules",
         image_url="Optional image URL to display in the embed",
         link="Optional standalone link shown at the bottom (e.g. invite, website)",
+        ping="Who to ping with the ad (default: @here)",
         webhook="Optional: name of a registered webhook to post through instead of the ad channel",
     )
+    @app_commands.choices(ping=ping_choices)
     async def postad(
         interaction: discord.Interaction,
         title: str,
         description: str,
+        body2: str = None,
+        body3: str = None,
         image_url: str = None,
         link: str = None,
+        ping: app_commands.Choice[str] = None,
         webhook: str = None,
     ):
         if not is_staff(interaction):
@@ -70,10 +83,16 @@ def register(client: AlterEgoClient):
                 )
                 return
 
+        full_description = description
+        if body2:
+            full_description += "\\n" + body2
+        if body3:
+            full_description += "\\n" + body3
+
         flagged_fields = []
         if is_nsfw(title):
             flagged_fields.append("title")
-        if is_nsfw(description):
+        if is_nsfw(full_description):
             flagged_fields.append("description")
         if link and is_nsfw(link):
             flagged_fields.append("link")
@@ -99,7 +118,7 @@ def register(client: AlterEgoClient):
         await log_command(client, interaction, extra=f"Title: {title} | Link: {link or 'None'} | Webhook: {webhook or 'None'}")
         await interaction.response.defer(ephemeral=True)
 
-        bulleted = format_body(description)
+        bulleted = format_body(full_description)
 
         link_line = ""
         if link:
@@ -129,21 +148,23 @@ def register(client: AlterEgoClient):
         text_embed.timestamp = datetime.now(timezone.utc)
         embeds.append(text_embed)
 
+        ping_value = ping.value if ping else "here"
+        mention = {"here": "@here", "everyone": "@everyone"}.get(ping_value)
+
         try:
+            send_kwargs = dict(embeds=embeds)
+            if mention:
+                send_kwargs["content"] = mention
+                send_kwargs["allowed_mentions"] = discord.AllowedMentions(everyone=True)
+
             if webhook_url:
                 async with aiohttp.ClientSession() as session:
                     wh = discord.Webhook.from_url(webhook_url, session=session)
-                    await wh.send(
-                        content="@here", embeds=embeds,
-                        allowed_mentions=discord.AllowedMentions(everyone=True),
-                    )
+                    await wh.send(**send_kwargs)
                 await interaction.followup.send(f"✅ Ad posted via webhook **{webhook.lower()}**!", ephemeral=True)
             else:
                 ch = client.get_channel(channel_id) or await client.fetch_channel(channel_id)
-                await ch.send(
-                    content="@here", embeds=embeds,
-                    allowed_mentions=discord.AllowedMentions(everyone=True),
-                )
+                await ch.send(**send_kwargs)
                 await interaction.followup.send("✅ Ad posted!", ephemeral=True)
         except discord.errors.Forbidden:
             await interaction.followup.send(
