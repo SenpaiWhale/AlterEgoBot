@@ -5,7 +5,7 @@ import os
 import discord
 
 TOKEN = os.environ["DISCORD_BOT_TOKEN"]
-BOT_VERSION = "v2.5"
+BOT_VERSION = "v2.6"
 
 SEP = "· · ───────────── ꒰ঌ·✦·໒꒱ ───────────── · ·"
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.db")
@@ -16,21 +16,20 @@ OWNER_GUILD = discord.Object(id=1471048262285918210)
 # Edit this when bumping BOT_VERSION. The bot auto-posts it on first startup
 # with a new version to every guild's configured updates channel.
 
-CHANGELOG_TITLE = "Security Hardening & Code Revamp"
+CHANGELOG_TITLE = "Rich Ads & Fresh Update Logs"
 CHANGELOG_BODY = """\
 ##🆕 What's New
-🛠️ Rebuilt the entire codebase from the ground up — faster, cleaner, and way easier to add new stuff
-🔗 Webhook URLs are now hidden in /webhook list so your links stay safe
-📣 Update logs like this one now post automatically whenever we drop a new version
+📢 /postad now supports emoji-prefixed lines — 🏆, ✅, ❌ and more stay exactly as you type them
+📝 Added **body2** and **body3** overflow fields for longer ads like crew recruitment posts
+📣 New **ping** option — choose @here, @everyone, or no ping when posting ads
+🎨 Update logs got a full makeover — friendlier tone, emoji sections, and a cleaner layout
 ---
-##🔒 Security Upgrades
-🔐 Image URLs are now HTTPS-only — no more sketchy links
-🛡️ Error details are no longer leaked into Discord channels
-💉 SQL injection prevention baked into the config system
-🗄️ All database connections use safe context managers now
-🎯 Every error is handled specifically — no more silent failures
+##🔧 How It Works
+✏️ Lines starting with an emoji are kept as-is instead of getting a ✦ bullet
+📦 body2 and body3 are optional — only use them when your ad is too long for one field
+🔍 NSFW filtering covers all body fields automatically
 ---
 ##💬 That's It!
-🎉 No action needed on your end — everything updates automatically
+🎉 No action needed — just enjoy the new features
 ❓ Questions? Run /help or reach out anytime\
 """
