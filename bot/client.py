@@ -270,21 +270,25 @@ async def _broadcast_changelog_if_new(client: AlterEgoClient):
     bulleted = format_body(CHANGELOG_BODY)
     now = datetime.now(timezone.utc)
 
-    description = f"""【｡✦｡】 # BOT UPDATE 【｡✦｡】
-{SEP}
+    description = f"""{SEP}
 
-##{BOT_VERSION} — {CHANGELOG_TITLE}
+🚀 **{BOT_VERSION}** — **{CHANGELOG_TITLE}**
 
 {bulleted}
 
 {SEP}
 
-✦ Run `/setup botcheck #channel` to enable the health indicator channel"""
+💡 Run `/setup botcheck #channel` to enable the health indicator
+💡 Run `/help` for the full command guide"""
 
-    embed = discord.Embed(description=description, color=discord.Color.purple())
+    embed = discord.Embed(description=description, color=0x9B59B6)
+    embed.set_author(name="【｡✦｡】 # NEW UPDATE DROPPED 【｡✦｡】")
     if client.user:
         embed.set_thumbnail(url=client.user.display_avatar.url)
-    embed.set_footer(text=f"Update Log • {now.strftime('%Y-%m-%d %H:%M UTC')}")
+    embed.set_footer(
+        text=f"AlterEgo {BOT_VERSION} • {now.strftime('%Y-%m-%d %H:%M UTC')}",
+        icon_url=client.user.display_avatar.url if client.user else None,
+    )
 
     sent = 0
     for channel_id in query_channel_ids("updates_channel_id"):

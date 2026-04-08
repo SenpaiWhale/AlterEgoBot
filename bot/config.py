@@ -18,18 +18,19 @@ OWNER_GUILD = discord.Object(id=1471048262285918210)
 
 CHANGELOG_TITLE = "Security Hardening & Code Revamp"
 CHANGELOG_BODY = """\
-##What's New
-Modular codebase — cleaner, faster, easier to extend
-Webhook URLs are now masked in /webhook list
-Bot update changelogs now post automatically on version bumps
+##🆕 What's New
+🛠️ Rebuilt the entire codebase from the ground up — faster, cleaner, and way easier to add new stuff
+🔗 Webhook URLs are now hidden in /webhook list so your links stay safe
+📣 Update logs like this one now post automatically whenever we drop a new version
 ---
-##Security
-Image URLs restricted to HTTPS only
-Error details no longer leaked to Discord channels
-SQL injection prevention added to config system
-All database connections now use safe context managers
-Specific exception handling throughout (no more silent failures)
+##🔒 Security Upgrades
+🔐 Image URLs are now HTTPS-only — no more sketchy links
+🛡️ Error details are no longer leaked into Discord channels
+💉 SQL injection prevention baked into the config system
+🗄️ All database connections use safe context managers now
+🎯 Every error is handled specifically — no more silent failures
 ---
-##Notes
-No action needed — all changes are automatic\
+##💬 That's It!
+🎉 No action needed on your end — everything updates automatically
+❓ Questions? Run /help or reach out anytime\
 """
