@@ -185,6 +185,8 @@ def create_client() -> AlterEgoClient:
 ✦ `---` — styled section divider
 ✦ `##Title` — styled sub-header
 ✦ `[label](url)` — inline clickable hyperlink
+✦ Lines starting with an emoji are kept as-is (e.g. 🏆 Top 10)
+✦ `/postad` supports **body2** and **body3** for longer ads
 
 {SEP}
 

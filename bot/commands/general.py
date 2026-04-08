@@ -92,12 +92,15 @@ def _build_help_pages() -> list[discord.Embed]:
 
 📢 **/postad**
 ✦ Posts a styled ad embed to the configured ad channel
-✦ Title + description required — image and link are optional
+✦ Title + description required — image, link, body2, body3, and ping are optional
+✦ Use **body2** and **body3** for long ads that exceed one field
+✦ Lines starting with an emoji are kept as-is (not re-bulleted)
 ✦ NSFW content is automatically blocked
 ✦ `\\n` = new bullet line — `\\n\\n` = blank gap — `---` = section divider
 ✦ `##Title` = styled sub-header — `[label](url)` = inline hyperlink
-✦ `Usage:` /postad title: description: image_url: link:
-✦ `Example:` /postad title:Commissions description:##Prices\\n$5 sketches---##Contact\\nDM me!
+✦ `ping:` @here (default), @everyone, or No ping
+✦ `Usage:` /postad title: description: body2: body3: image_url: link: ping:
+✦ `Example:` /postad title:ALTER EGO description:##About Us\\n🏆 Top crew---##How to Join\\nDM us!
 
 {SEP}
 
